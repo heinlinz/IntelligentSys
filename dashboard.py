@@ -286,6 +286,8 @@ with simulator_tab:
         "change. The defaults match the worked example on the Numerical sheet."
     )
 
+    st.balloons()
+
     controls, results = st.columns([1, 1.4])
 
     with controls:
