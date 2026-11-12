@@ -83,7 +83,8 @@ class RenewalRate(Resource):
     def put(self, renewal_rate_id):
         data = request_data()
         renewal_rate = {'renewal_rate': data.get('renewal_rate')}
-        renewal_rates_ref.document(renewal_rate_id).set(renewal_rate)
+        # merge=True keeps the stored inputs/intermediates intact
+        renewal_rates_ref.document(renewal_rate_id).set(renewal_rate, merge=True)
         return renewal_rate, 201
 
 
@@ -148,8 +149,14 @@ class RenewalRateList(Resource):
         for t in range(1, n_steps):
             O[t] = O[t-1] + eta * (s - O[t-1]) * dt
 
-        # Build the full result: inputs, intermediate values, and final rate
+        # Build the full result: inputs, intermediate values, and final rate.
+        # X1..X5 are stored both at the top level and nested under 'inputs'.
         result = {
+            'X1': X1,
+            'X2': X2,
+            'X3': X3,
+            'X4': X4,
+            'X5': X5,
             'inputs': {
                 'X1': X1,
                 'X2': X2,
