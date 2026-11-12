@@ -1,8 +1,8 @@
 import os
 
 import numpy as np
-from flask import Flask
-from flask_restful import Api, Resource, abort, reqparse
+from flask import Flask, request
+from flask_restful import Api, Resource, abort
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -62,8 +62,11 @@ def next_renewal_rate_id(transaction):
     return 'renewal_rate{}'.format(last_id + 1)
 
 
-parser = reqparse.RequestParser()
-parser.add_argument('renewal_rate')
+def request_data():
+    """Read a JSON or form-encoded request body."""
+    if request.is_json:
+        return request.get_json()
+    return request.form
 
 
 # RenewalRate
@@ -78,8 +81,8 @@ class RenewalRate(Resource):
         return '', 204
 
     def put(self, renewal_rate_id):
-        args = parser.parse_args()
-        renewal_rate = {'renewal_rate': args['renewal_rate']}
+        data = request_data()
+        renewal_rate = {'renewal_rate': data.get('renewal_rate')}
         renewal_rates_ref.document(renewal_rate_id).set(renewal_rate)
         return renewal_rate, 201
 
@@ -94,16 +97,22 @@ class RenewalRateList(Resource):
         }
 
     def post(self):
-        rr_parser = reqparse.RequestParser()
-        for name in ['X1', 'X2', 'X3', 'X4', 'X5']:
-            rr_parser.add_argument(
-                name,
-                type=float,
-                required=True,
-                help='{} must be a float value'.format(name)
-            )
+        data = request_data()
+        values = {}
+        errors = {}
 
-        args = rr_parser.parse_args()
+        for name in ['X1', 'X2', 'X3', 'X4', 'X5']:
+            raw = data.get(name)
+            if raw is None:
+                errors[name] = '{} is required'.format(name)
+                continue
+            try:
+                values[name] = float(raw)
+            except (TypeError, ValueError):
+                errors[name] = '{} must be a float value'.format(name)
+
+        if errors:
+            abort(400, message=errors)
 
         # Generate a new renewal_rate_id
         renewal_rate_id = next_renewal_rate_id(db.transaction())
@@ -118,11 +127,11 @@ class RenewalRateList(Resource):
         w4 = 0.6
 
         X1, X2, X3, X4, X5 = (
-            args['X1'],
-            args['X2'],
-            args['X3'],
-            args['X4'],
-            args['X5']
+            values['X1'],
+            values['X2'],
+            values['X3'],
+            values['X4'],
+            values['X5']
         )
 
         # Inputs are constant over time, so h and s are constant too
